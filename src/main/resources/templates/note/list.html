@@ -1,32 +1,47 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Note List</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
-<h1>Notes</h1>
-<table border="1">
-    <thead>
-    <tr>
-        <th>Title</th>
-        <th>Content</th>
-        <th>Actions</th>
-    </tr>
-    </thead>
-    <tbody>
-    <tr th:each="note : ${notes}">
-        <td th:text="${note.title}">Title</td>
-        <td th:text="${note.content}">Content</td>
-        <td>
-            <form th:action="@{/note/delete}" method="post" style="display: inline;">
-                <input type="hidden" name="id" th:value="${note.id}" />
-                <button type="submit">Delete</button>
-            </form>
-            <a th:href="@{/note/edit(id=${note.id})}">Edit</a>
-        </td>
-    </tr>
-    </tbody>
-</table>
-<a href="/note/edit">Create New Note</a>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">Notes Manager</a>
+    </div>
+</nav>
+
+<div class="container mt-4">
+    <h1 class="mb-4">Notes</h1>
+    <table class="table table-bordered table-striped">
+        <thead class="table-primary">
+        <tr>
+            <th>Title</th>
+            <th>Content</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr th:each="note : ${notes}">
+            <td th:text="${note.title}">Title</td>
+            <td th:text="${note.content}">Content</td>
+            <td>
+                <div class="d-flex gap-2">
+                    <form th:action="@{/note/delete}" method="post" class="d-inline">
+                        <input type="hidden" name="id" th:value="${note.id}" />
+                        <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                    </form>
+                    <a th:href="@{/note/edit(id=${note.id})}" class="btn btn-warning btn-sm">Edit</a>
+                </div>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+    <a href="/note/edit" class="btn btn-success">Create New Note</a>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

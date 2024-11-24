@@ -87,4 +87,29 @@ class NoteControllerTest {
 
         verify(noteService, times(1)).update(any(Note.class));
     }
+
+    @Test
+    void deleteValidIdRedirectsToList() throws Exception {
+        doNothing().when(noteService).delete(1L);
+
+        mockMvc.perform(post("/note/delete")
+                        .param("id", "1"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/note/list"));
+
+        verify(noteService, times(1)).delete(1L);
+    }
+
+    @Test
+    void deleteInvalidIdReturnsErrorPage() throws Exception {
+        mockMvc.perform(post("/note/delete")
+                        .param("id", "0"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("note/error"))
+                .andExpect(model().attributeExists("message"))
+                .andExpect(model().attribute("message", ExceptionMessages.INVALID_NOTE_ID.getMessage()))
+                .andReturn();
+
+        verify(noteService, never()).delete(anyLong());
+    }
 }

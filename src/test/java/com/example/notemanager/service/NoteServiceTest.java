@@ -1,30 +1,30 @@
 package com.example.notemanager.service;
 
-import com.example.notemanager.exception.NoteNotFoundException;
+import com.example.notemanager.exception.ExceptionMessages;
+import com.example.notemanager.exception.NoteServiceException;
 import com.example.notemanager.model.Note;
-import com.example.notemanager.util.IdGenerator;
+import com.example.notemanager.repository.INoteRepository;
+import com.example.notemanager.util.IdGeneratorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class NoteServiceTest {
     private NoteService noteService;
-    private IdGenerator idGenerator;
-    private Map<Long, Note> notes;
+    private INoteRepository noteRepository;
+    private IdGeneratorService idGeneratorService;
 
     @BeforeEach
     void setUp() {
-        notes = new ConcurrentHashMap<>();
-        idGenerator = mock(IdGenerator.class);
-        noteService = new NoteService(notes, idGenerator);
+        noteRepository = mock(INoteRepository.class);
+        idGeneratorService = mock(IdGeneratorService.class);
+        noteService = new NoteService(noteRepository, idGeneratorService);
     }
 
     @Test
@@ -36,18 +36,13 @@ class NoteServiceTest {
 
     @Test
     void listAllWhenNotesExist() {
-        Map<Long, Note> notesMock = new ConcurrentHashMap<>();
-        NoteService noteServiceWithMock = new NoteService(notesMock, idGenerator);
-
         Note note1 = Note.builder().id(1L).title("title 1").content("content 1").build();
         Note note2 = Note.builder().id(2L).title("title 2").content("content 2").build();
         Note note3 = Note.builder().id(3L).title("title 3").content("content 3").build();
 
-        notesMock.put(1L, note1);
-        notesMock.put(2L, note2);
-        notesMock.put(3L, note3);
+        when(noteRepository.findAll()).thenReturn(List.of(note1, note2, note3));
 
-        List<Note> result = noteServiceWithMock.listAll();
+        List<Note> result = noteService.listAll();
 
         assertNotNull(result);
         assertEquals(3, result.size(), "The list should contain all notes.");
@@ -57,89 +52,80 @@ class NoteServiceTest {
     }
 
     @Test
-    void createAddsNoteWithGeneratedId() {
-        when(idGenerator.generateId()).thenReturn(1L);
-        Note note = Note.builder().title("title").content("content").build();
+    void createSavesNoteWithGeneratedId() {
+        when(idGeneratorService.generateId()).thenReturn(1L);
+        ArgumentCaptor<Note> noteCaptor = ArgumentCaptor.forClass(Note.class);
 
-        Note createdNote = noteService.create(note);
+        Note inputNote = Note.builder().title("title").content("content").build();
+        Note expectedNote = Note.builder().id(1L).title("title").content("content").build();
 
-        assertNotNull(createdNote);
-        assertEquals(1L, createdNote.getId());
-        assertEquals("title", createdNote.getTitle());
-        assertEquals("content", createdNote.getContent());
+        Note result = noteService.create(inputNote);
 
-        List<Note> allNotes = noteService.listAll();
+        verify(noteRepository).save(noteCaptor.capture());
+        Note capturedNote = noteCaptor.getValue();
 
-        assertEquals(1, allNotes.size());
-        assertEquals(createdNote, allNotes.get(0));
+        assertEquals(expectedNote.getId(), capturedNote.getId());
+        assertEquals(expectedNote.getTitle(), capturedNote.getTitle());
+        assertEquals(expectedNote.getContent(), capturedNote.getContent());
+        assertEquals(expectedNote, result);
     }
 
     @Test
     void getByIdReturnsNoteIfExists() {
-        when(idGenerator.generateId()).thenReturn(1L);
-        Note note = Note.builder().title("title").content("content").build();
-        Note createdNote = noteService.create(note);
+        Note note = Note.builder().id(1l).title("title").content("content").build();
+        when(noteRepository.findById(1L)).thenReturn(Optional.of(note));
 
-        Optional<Note> retrievedNote = noteService.getById(1L);
+        Note result = noteService.getById(1L);
 
-        assertTrue(retrievedNote.isPresent());
-        assertEquals(createdNote, retrievedNote.get());
+        assertNotNull(result);
+        assertEquals(note, result);
     }
 
     @Test
     void getByIdReturnsEmptyIfNotExists() {
-        Optional<Note> retrievedNote = noteService.getById(999L);
+        when(noteRepository.findById(999L)).thenReturn(Optional.empty());
 
-        assertFalse(retrievedNote.isPresent());
+        Exception exception = assertThrows(NoteServiceException.class, () -> noteService.getById(999L));
+        assertEquals(ExceptionMessages.NOTE_NOT_FOUND.getMessage(), exception.getMessage());
     }
 
     @Test
     void updateUpdatesExistingNote() {
-        when(idGenerator.generateId()).thenReturn(1L);
-        Note note = Note.builder().title("initial title").content("initial content").build();
-        Note createdNote = noteService.create(note);
+        Note existingNote = Note.builder().id(1L).title("old title").content("old content").build();
+        Note updatedNote = Note.builder().id(1L).title("new title").content("new content").build();
 
-        Note updatedNote = Note.builder()
-                .id(createdNote.getId())
-                .title("updated title")
-                .content("updated content")
-                .build();
+        when(noteRepository.existsById(1L)).thenReturn(true);
 
         Note result = noteService.update(updatedNote);
 
-        assertEquals("updated title", result.getTitle());
-        assertEquals("updated content", result.getContent());
-
-        Optional<Note> retrievedNote = noteService.getById(1L);
-        assertTrue(retrievedNote.isPresent());
-        assertEquals("updated title", retrievedNote.get().getTitle());
+        verify(noteRepository).save(updatedNote);
+        assertEquals(updatedNote, result);
     }
 
     @Test
     void updateThrowsIfNoteDoesNotExist() {
         Note nonExistentNote = Note.builder().id(999L).title("nonexistent").content("no content").build();
 
-        assertThrows(NoteNotFoundException.class, () -> {
-            noteService.update(nonExistentNote);
-        });
+        when(noteRepository.existsById(999L)).thenReturn(false);
+
+        Exception exception = assertThrows(NoteServiceException.class, () -> noteService.update(nonExistentNote));
+        assertEquals(ExceptionMessages.NOTE_NOT_FOUND.getMessage(), exception.getMessage());
     }
 
     @Test
-    void delete_RemovesExistingNote() {
-        when(idGenerator.generateId()).thenReturn(1L);
-        Note note = Note.builder().title("title").content("content").build();
-        noteService.create(note);
+    void deleteRemovesExistingNote() {
+        when(noteRepository.existsById(1L)).thenReturn(true);
 
         noteService.delete(1L);
 
-        assertTrue(noteService.listAll().isEmpty());
-        assertFalse(noteService.getById(1L).isPresent());
+        verify(noteRepository).deleteById(1L);
     }
 
     @Test
-    void delete_ThrowsIfNoteDoesNotExist() {
-        assertThrows(NoteNotFoundException.class, () -> {
-            noteService.delete(999L);
-        });
+    void deleteThrowsIfNoteDoesNotExist() {
+        when(noteRepository.existsById(999L)).thenReturn(false);
+
+        Exception exception = assertThrows(NoteServiceException.class, () -> noteService.delete(999L));
+        assertEquals(ExceptionMessages.NOTE_NOT_FOUND.getMessage(), exception.getMessage());
     }
 }

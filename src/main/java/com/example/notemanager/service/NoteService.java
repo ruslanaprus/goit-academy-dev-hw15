@@ -2,9 +2,10 @@ package com.example.notemanager.service;
 
 import com.example.notemanager.exception.NoteNotFoundException;
 import com.example.notemanager.model.Note;
-import com.example.notemanager.util.IdGenerator;
+import com.example.notemanager.util.IdGeneratorService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -13,20 +14,23 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class NoteService {
+public class NoteService implements INoteService {
     private final Map<Long, Note> notes;
-    private final IdGenerator idGenerator;
+    private final IdGeneratorService idGeneratorService;
 
+    @GetMapping
     public List<Note> listAll() {
         return new ArrayList<>(notes.values());
     }
 
-    public Optional<Note> getById(long id) {
-        return Optional.ofNullable(notes.get(id));
+    @Override
+    public Note getById(long id) {
+        return notes.get(id);
     }
 
+    @Override
     public Note create(Note note) {
-        long id = idGenerator.generateId();
+        long id = idGeneratorService.generateId();
         Note newNote = Note.builder()
                 .id(id)
                 .title(note.getTitle())
@@ -36,6 +40,7 @@ public class NoteService {
         return newNote;
     }
 
+    @Override
     public Note update(Note note) {
         return Optional.ofNullable(notes.get(note.getId()))
                 .map(existingNote -> {
@@ -50,6 +55,7 @@ public class NoteService {
                 .orElseThrow(() -> new NoteNotFoundException("Note with id " + note.getId() + " not found"));
     }
 
+    @Override
     public void delete(long id) {
         if (notes.remove(id) == null) {
             throw new NoteNotFoundException("Note with id " + id + " not found");

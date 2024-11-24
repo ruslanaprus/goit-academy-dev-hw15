@@ -1,5 +1,7 @@
 package com.example.notemanager.service;
 
+import com.example.notemanager.exception.ExceptionMessages;
+import com.example.notemanager.exception.NoteServiceException;
 import com.example.notemanager.model.Note;
 import com.example.notemanager.repository.INoteRepository;
 import com.example.notemanager.util.IdGeneratorService;
@@ -8,7 +10,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import java.util.List;
-import java.util.NoSuchElementException;
 
 @Service
 @RequiredArgsConstructor
@@ -24,11 +25,15 @@ public class NoteService implements INoteService {
     @Override
     public Note getById(long id) {
         return noteRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Note not found"));
+                .orElseThrow(() -> new NoteServiceException(ExceptionMessages.NOTE_NOT_FOUND.getMessage()));
     }
 
     @Override
     public Note create(Note note) {
+        if(note.getTitle() == null || note.getTitle().isEmpty()) {
+            throw new NoteServiceException(ExceptionMessages.INVALID_NOTE_DATA.getMessage());
+        }
+
         long id = idGeneratorService.generateId();
         Note newNote = Note.builder()
                 .id(id)
@@ -42,7 +47,7 @@ public class NoteService implements INoteService {
     @Override
     public Note update(Note note) {
         if(!noteRepository.existsById(note.getId())) {
-            throw new NoSuchElementException("Note does not exist");
+            throw new NoteServiceException(ExceptionMessages.NOTE_NOT_FOUND.getMessage());
         }
         noteRepository.save(note);
         return note;
@@ -51,7 +56,7 @@ public class NoteService implements INoteService {
     @Override
     public void delete(long id) {
         if(!noteRepository.existsById(id)) {
-            throw new NoSuchElementException("Note does not exist");
+            throw new NoteServiceException(ExceptionMessages.NOTE_NOT_FOUND.getMessage());
         }
         noteRepository.deleteById(id);
     }
